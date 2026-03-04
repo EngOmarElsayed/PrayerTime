@@ -1,0 +1,123 @@
+import SwiftUI
+
+struct PrayerListView: View {
+    @Environment(PrayerManager.self) private var prayerManager
+    @State private var showSettings = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            headerSection
+            Divider()
+            prayerListSection
+            Divider()
+            footerSection
+        }
+        .frame(width: 260)
+    }
+
+    private var headerSection: some View {
+        HStack {
+            Text("Prayer Times")
+                .font(.headline)
+
+            Spacer()
+
+            if prayerManager.isAdhanPlaying {
+                Button("Stop Adhan") { prayerManager.stopAdhan() }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+    }
+
+    private var prayerListSection: some View {
+        VStack(spacing: 2) {
+            ForEach(prayerManager.prayers) { prayer in
+                PrayerRow(prayer: prayer, isNext: prayerManager.nextPrayer?.name == prayer.name)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var footerSection: some View {
+        HStack {
+            Button {
+                showSettings.toggle()
+            } label: {
+                Image(systemName: "gear")
+                Text("Settings")
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showSettings) {
+                SettingsView()
+                    .environment(prayerManager)
+                    .frame(width: 300, height: 320)
+            }
+
+            Spacer()
+
+            Button {
+                Task {
+                    await prayerManager.refresh()
+                }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.plain)
+            .help("Refresh prayer times")
+
+            Button("Quit") {
+                NSApplication.shared.terminate(nil)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+    }
+}
+
+struct PrayerRow: View {
+    let prayer: PrayerTime
+    let isNext: Bool
+
+    private var timeFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.dateFormat = "hh:mm a"
+        return f
+    }
+
+    var body: some View {
+        HStack {
+            Text(prayer.name.emoji)
+                .font(.body)
+
+            Text(prayer.name.rawValue)
+                .fontWeight(isNext ? .semibold : .regular)
+
+            Spacer()
+
+            Text(timeFormatter.string(from: prayer.time))
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(isNext ? .primary : .secondary)
+
+            if prayer.isPassed {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.caption)
+            } else if isNext {
+                Image(systemName: "arrow.right.circle.fill")
+                    .foregroundStyle(.blue)
+                    .font(.caption)
+            } else {
+                Image(systemName: "circle")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 4)
+        .background(isNext ? Color.accentColor.opacity(0.1) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 4)
+    }
+}
