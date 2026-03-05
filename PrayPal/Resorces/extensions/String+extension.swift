@@ -12,4 +12,7 @@ extension String {
     static let notificationSound = "notificationSound"
     static let notificationsEnabled = "notificationsEnabled"
     static let menuBarLabelMode = "menuBarLabelMode"
+    static let use24HourFormat = "use24HourFormat"
+    static let showIslamicDate = "showIslamicDate"
+    static let islamicDateLanguage = "islamicDateLanguage"
 }

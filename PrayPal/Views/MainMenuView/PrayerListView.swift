@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PrayerListView: View {
     @Environment(PrayerManager.self) private var prayerManager
+    @AppStorage(.showIslamicDate) private var showIslamicDate = true
+    @AppStorage(.islamicDateLanguage) private var islamicDateLanguage: IslamicDateLanguage = .english
     @State private var showSettings = false
 
     var body: some View {
@@ -24,6 +26,10 @@ struct PrayerListView: View {
 
             if prayerManager.isAdhanPlaying {
                 Button("Stop Adhan") { prayerManager.stopAdhan() }
+            } else if showIslamicDate, let hijriDate = prayerManager.hijriDate {
+                Text("• \(hijriDate.formatted(language: islamicDateLanguage))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal)
@@ -79,10 +85,11 @@ struct PrayerListView: View {
 struct PrayerRow: View {
     let prayer: PrayerTime
     let isNext: Bool
+    @AppStorage(.use24HourFormat) private var use24HourFormat = false
 
     private var timeFormatter: DateFormatter {
         let f = DateFormatter()
-        f.dateFormat = "hh:mm a"
+        f.dateFormat = use24HourFormat ? "HH:mm" : "hh:mm a"
         return f
     }
 

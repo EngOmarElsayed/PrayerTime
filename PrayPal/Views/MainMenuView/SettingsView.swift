@@ -7,6 +7,9 @@ struct SettingsView: View {
     @AppStorage(.menuBarLabelMode) private var labelMode: MenuBarLabelMode = .mosqueWithCountdown
     @AppStorage(.calculationMethod) private var calculationMethodRaw: Int = CalculationMethod.egyptian.rawValue
     @AppStorage(.notificationSound) private var notificationSound: NotificationSound = .defaultSound
+    @AppStorage(.use24HourFormat) private var use24HourFormat = false
+    @AppStorage(.showIslamicDate) private var showIslamicDate = true
+    @AppStorage(.islamicDateLanguage) private var islamicDateLanguage: IslamicDateLanguage = .english
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var notificationsEnabled = false
 
@@ -56,6 +59,17 @@ struct SettingsView: View {
             }
 
             Section("General") {
+                Toggle("Show Islamic Date", isOn: $showIslamicDate)
+
+                Picker("Islamic Date Language", selection: $islamicDateLanguage) {
+                    ForEach(IslamicDateLanguage.allCases) { language in
+                        Text(language.rawValue).tag(language)
+                    }
+                }
+                .disabled(!showIslamicDate)
+
+                Toggle("24-Hour Time Format", isOn: $use24HourFormat)
+
                 Toggle("Launch at Login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
                         setLaunchAtLogin(newValue)
@@ -65,6 +79,11 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .onAppear {
             notificationsEnabled = prayerManager.notificationState()
+            // Force the popover window to become key so controls render in active appearance
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.windows.first { $0.isVisible }?.makeKey()
+            }
         }
     }
 

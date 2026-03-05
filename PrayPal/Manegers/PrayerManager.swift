@@ -22,6 +22,7 @@ final class PrayerManager {
     private(set) var nextPrayer: PrayerTime?
     private(set) var countdown: String = "--:--:--"
     private(set) var errorMessage: String?
+    private(set) var hijriDate: HijriDate?
 
     // Tasks
     private var countdownTask: Task<Void, Never>?
@@ -46,8 +47,9 @@ extension PrayerManager {
     func fetchPrayerTimes() async {
         do {
             let location = try await locationManager.requestLocation()
-            let timings = try await fetchFromAPI(latitude: location.latitude, longitude: location.longitude)
-            parsePrayerTimes(timings)
+            let data = try await fetchFromAPI(latitude: location.latitude, longitude: location.longitude)
+            parsePrayerTimes(data.timings)
+            hijriDate = data.date.hijri
             scheduleNotifications()
             errorMessage = nil
         } catch {
@@ -249,7 +251,7 @@ private extension PrayerManager {
         return today
     }
 
-    func fetchFromAPI(latitude: Double, longitude: Double) async throws -> AladhanTimings {
+    func fetchFromAPI(latitude: Double, longitude: Double) async throws -> AladhanData {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd-MM-yyyy"
         let dateString = dateFormatter.string(from: Date())
@@ -262,7 +264,7 @@ private extension PrayerManager {
         
         let (data, _) = try await URLSession.shared.data(from: url)
         let response = try JSONDecoder().decode(AladhanResponse.self, from: data)
-        return response.data.timings
+        return response.data
     }
     
     func parsePrayerTimes(_ timings: AladhanTimings) {
