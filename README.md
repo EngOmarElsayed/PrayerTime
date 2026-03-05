@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/Screenshot 2026-03-05 at 5.07.04 PM.png" alt="PrayerTime Screenshot" width="600" />
+  <img src="assets/Screenshot%202026-03-05%20at%205.07.04%E2%80%AFPM.png" alt="PrayerTime Screenshot" width="600" />
 </p>
 
 ---
