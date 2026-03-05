@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         Task {
-            async let _ = prayerManager.requestNotificationPermission()
+            await prayerManager.requestNotificationPermission()
             await prayerManager.fetchPrayerTimes()
             prayerManager.startCountdownTimer()
             prayerManager.scheduleMidnightRefresh()
