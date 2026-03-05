@@ -4,11 +4,11 @@ import ServiceManagement
 struct SettingsView: View {
     @Environment(PrayerManager.self) private var prayerManager
 
-    @AppStorage("menuBarLabelMode") private var labelMode: MenuBarLabelMode = .mosqueWithCountdown
-    @AppStorage("calculationMethod") private var calculationMethodRaw: Int = CalculationMethod.egyptian.rawValue
-    @AppStorage("notificationsEnabled") private var notificationsEnabled = false
-    @AppStorage("notificationSound") private var notificationSound: NotificationSound = .defaultSound
-    @State private var launchAtLogin = false
+    @AppStorage(.menuBarLabelMode) private var labelMode: MenuBarLabelMode = .mosqueWithCountdown
+    @AppStorage(.calculationMethod) private var calculationMethodRaw: Int = CalculationMethod.egyptian.rawValue
+    @AppStorage(.notificationSound) private var notificationSound: NotificationSound = .defaultSound
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var notificationsEnabled = false
 
     private var calculationMethod: Binding<CalculationMethod> {
         Binding(
@@ -44,7 +44,7 @@ struct SettingsView: View {
             Section("Notifications") {
                 Toggle("Enable Notifications", isOn: $notificationsEnabled)
                     .onChange(of: notificationsEnabled) { _, _ in
-                        prayerManager.scheduleNotifications()
+                        Task{ await prayerManager.toggleNotification(newValue: notificationsEnabled) }
                     }
 
                 Picker("Notification Sound", selection: $notificationSound) {
@@ -53,9 +53,6 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(!notificationsEnabled)
-                .onChange(of: notificationSound) { _, _ in
-                    prayerManager.scheduleNotifications()
-                }
             }
 
             Section("General") {
@@ -67,7 +64,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+            notificationsEnabled = prayerManager.notificationState()
         }
     }
 

@@ -1,21 +1,21 @@
 import SwiftUI
 
 struct MenuBarLabelView: View {
-    let mode: MenuBarLabelMode
-    let countdown: String
-    let nextPrayerName: String?
+    @Environment(PrayerManager.self) private var prayerManager
+    @AppStorage("menuBarLabelMode") private var labelMode: MenuBarLabelMode = .mosqueWithCountdown
 
     var body: some View {
-        switch mode {
+        switch labelMode {
         case .iconOnly:
             Text("📿")
         case .mosqueWithCountdown:
-            Text("📿 \(countdown)")
+            Text("📿 \(prayerManager.countdown)")
+
         case .prayerNameWithCountdown:
-            if let name = nextPrayerName {
-                Text("\(name) \(countdown)")
+            if let name = prayerManager.nextPrayer?.name {
+                Text("\(name.rawValue) \(prayerManager.countdown)")
             } else {
-                Text("📿 \(countdown)")
+                Text("📿 \(prayerManager.countdown)")
             }
         }
     }

@@ -2,19 +2,16 @@ import SwiftUI
 
 @main
 struct PrayPalApp: App {
-    @State private var prayerManager = PrayerManager()
-    @AppStorage("menuBarLabelMode") private var labelMode: MenuBarLabelMode = .mosqueWithCountdown
+    @State private var prayerManager = PrayerManager.main
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         MenuBarExtra {
             PrayerListView()
                 .environment(prayerManager)
         } label: {
-            MenuBarLabelView(
-                mode: labelMode,
-                countdown: prayerManager.countdown,
-                nextPrayerName: prayerManager.nextPrayer?.name.rawValue
-            )
+            MenuBarLabelView()
+                .environment(prayerManager)
         }
         .menuBarExtraStyle(.window)
     }

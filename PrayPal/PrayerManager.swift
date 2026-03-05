@@ -9,36 +9,36 @@ import Foundation
 import UserNotifications
 import AVFoundation
 internal import _LocationEssentials
+import AppKit
 
 @MainActor
 @Observable
 final class PrayerManager {
-    var prayers: [PrayerTime] = []
-    var isAdhanPlaying: Bool = false
-    var nextPrayer: PrayerTime?
-    var countdown: String = "--:--:--"
-    var errorMessage: String?
-    
-    private let locationManager = LocationManager()
+    static var main = PrayerManager()
+
+    // UI States
+    private(set) var prayers: [PrayerTime] = []
+    private(set) var isAdhanPlaying: Bool = false
+    private(set) var nextPrayer: PrayerTime?
+    private(set) var countdown: String = "--:--:--"
+    private(set) var errorMessage: String?
+
+    // Tasks
     private var countdownTask: Task<Void, Never>?
-    private var audioPlayer: AVAudioPlayer?
-    
-    var calculationMethod: CalculationMethod {
-        let raw = UserDefaults.standard.integer(forKey: "calculationMethod")
+    private var midnightRefreshTask: Task<Void, Never>?
+    private var waitingForAudioTask: Task<Void, Never>?
+
+    // Private states
+    private let userDefualts = UserDefaults.standard
+    private let center = UNUserNotificationCenter.current()
+    private let locationManager = LocationManager()
+    private var currentAdhanSound: NSSound?
+    private var calculationMethod: CalculationMethod {
+        let raw = userDefualts.integer(forKey: .calculationMethod)
         return CalculationMethod(rawValue: raw) ?? .egyptian
     }
     
-    init() {
-        // Set default calculation method if not already set
-        if UserDefaults.standard.object(forKey: "calculationMethod") == nil {
-            UserDefaults.standard.set(CalculationMethod.egyptian.rawValue, forKey: "calculationMethod")
-        }
-        Task {
-            async let _ =  requestNotificationPermission()
-            async let _ = fetchPrayerTimes()
-            startCountdownTimer()
-        }
-    }
+    private init() {}
 }
 
 // MARK: - Prayer Time
@@ -48,20 +48,10 @@ extension PrayerManager {
             let location = try await locationManager.requestLocation()
             let timings = try await fetchFromAPI(latitude: location.latitude, longitude: location.longitude)
             parsePrayerTimes(timings)
-            updateCountdown()
             scheduleNotifications()
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
-            // Use default location (Mecca) as fallback
-            do {
-                let timings = try await fetchFromAPI(latitude: 21.4225, longitude: 39.8262)
-                parsePrayerTimes(timings)
-                updateCountdown()
-                scheduleNotifications()
-            } catch {
-                errorMessage = "Failed to load prayer times"
-            }
         }
     }
     
@@ -69,29 +59,52 @@ extension PrayerManager {
     func refresh() async {
         await fetchPrayerTimes()
     }
+
+    func cancelPrayerTasks() {
+        midnightRefreshTask?.cancel()
+        midnightRefreshTask = nil
+
+        countdownTask?.cancel()
+        countdownTask = nil
+    }
 }
 
 // MARK: - Notifications
 extension PrayerManager {
-    func requestNotificationPermission() async {
-        #warning("Handle notification authorization")
-        _ = try? await UNUserNotificationCenter.current().requestAuthorization()
+    func toggleNotification(newValue: Bool) async {
+        if newValue {
+            await requestNotificationPermission()
+            scheduleNotifications()
+        } else {
+            userDefualts.set(false, forKey: .notificationsEnabled)
+            cancelAllNotifications()
+        }
     }
     
-    func scheduleNotifications() {
-        let center = UNUserNotificationCenter.current()
-        // Remove previously scheduled prayer notifications
-        center
-            .removePendingNotificationRequests(
-                withIdentifiers:
-                    PrayerName.allCases
-                    .map {
-                        "prayer-\($0.rawValue)"
-                    }
-        )
+    func notificationState() -> Bool {
+        userDefualts.bool(forKey: .notificationsEnabled)
+    }
+    
+    func requestNotificationPermission() async {
+        let notificationSettings = await center.notificationSettings()
 
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
-        guard notificationsEnabled else { return }
+        switch notificationSettings.authorizationStatus {
+        case .notDetermined:
+            let result = try? await center.requestAuthorization(options: [.alert, .badge, .criticalAlert, .sound])
+            userDefualts.set(result, forKey: .notificationsEnabled)
+        case .denied:
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!)
+        case .authorized, .provisional:
+            userDefualts.set(true, forKey: .notificationsEnabled)
+            return
+        @unknown default:
+            fatalError("I new case to authorizationStatus was added")
+        }
+    }
+    
+    private func scheduleNotifications() {
+        cancelAllNotifications()
+        guard userDefualts.bool(forKey: .notificationsEnabled) else { return }
         for prayer in prayers {
             if prayer.name == .sunrise { continue }
             if prayer.isPassed { continue }
@@ -112,35 +125,64 @@ extension PrayerManager {
             center.add(request)
         }
     }
+
+    private func cancelAllNotifications() {
+        center
+            .removePendingNotificationRequests(
+                withIdentifiers:
+                    PrayerName.allCases
+                    .map {
+                        "prayer-\($0.rawValue)"
+                    }
+        )
+    }
 }
 
 // MARK: - Adhan Audio Playback
 extension PrayerManager {
     func stopAdhan() {
-        audioPlayer?.stop()
-        audioPlayer = nil
+        currentAdhanSound?.stop()
+        currentAdhanSound = nil
         isAdhanPlaying = false
+
+        waitingForAudioTask?.cancel()
+        waitingForAudioTask = nil
     }
     
-    private func playAdhan() {
-        let soundRaw = UserDefaults.standard.string(forKey: "notificationSound") ?? NotificationSound.defaultSound.rawValue
+    private func playAdhan(for prayer: PrayerTime?) async {
+        guard prayer?.name != .sunrise else { return }
+        let soundRaw = userDefualts.string(forKey: .notificationSound) ?? NotificationSound.defaultSound.rawValue
         let selectedSound = NotificationSound(rawValue: soundRaw) ?? .defaultSound
         
         guard let fileName = selectedSound.fileName else { return }
         guard let url = Bundle.main.url(forResource: fileName, withExtension: "wav") else { return }
         
-        do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.play()
-            isAdhanPlaying = true
-        } catch {
-            // Playback failed
+        currentAdhanSound = NSSound(contentsOf: url, byReference: true)
+        currentAdhanSound?.play()
+        isAdhanPlaying = true
+        waitingForAudioTask = Task {
+            try? await Task.sleep(for: .seconds(currentAdhanSound?.duration ?? 0.0))
+            isAdhanPlaying = false
         }
     }
 }
 
-// MARK: - Helper Methods
-private extension PrayerManager {
+// MARK: - Timers
+extension PrayerManager {
+    func scheduleMidnightRefresh() {
+        midnightRefreshTask?.cancel()
+        midnightRefreshTask = Task {
+            while !Task.isCancelled {
+                let now = Date()
+                guard let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)) else { break }
+                let interval = midnight.timeIntervalSince(now) + 60 // 1 minute past midnight
+                try? await Task.sleep(for: .seconds(interval))
+                guard !Task.isCancelled else { break }
+                await fetchPrayerTimes()
+            }
+        }
+    }
+
     func startCountdownTimer() {
         countdownTask?.cancel()
         countdownTask = Task {
@@ -153,21 +195,24 @@ private extension PrayerManager {
             }
             for await _ in tickStream {
                 guard !Task.isCancelled else { break }
-                updateCountdown()
+                await updateCountdown()
             }
         }
     }
-    
-    func updateCountdown() {
+}
+
+// MARK: - Helper Methods
+private extension PrayerManager {
+    func updateCountdown() async {
         nextPrayer = prayers.first { $0.time > .now }
         guard let next = nextPrayer else {
-            countdown = "--:--"
+            countdown = "--:--:--"
             return
         }
         
         let remaining = next.time.timeIntervalSince(Date())
         if remaining <= 0 {
-            playAdhan()
+            await playAdhan(for: nextPrayer)
             countdown = "00:00"
             return
         }
@@ -177,7 +222,7 @@ private extension PrayerManager {
         let seconds = Int(remaining) % 60
         
         if hours > 0 {
-            countdown = String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            countdown = String(format: "%02d:%02d:%02d", hours, minutes, seconds)
         } else {
             countdown = String(format: "%02d:%02d", minutes, seconds)
         }
