@@ -32,7 +32,7 @@ PrayerTime uses your location solely to calculate prayer times via the Aladhan A
 ## Built With
 
 - SwiftUI
-- Aladhan API
+- [Aladhan API](https://aladhan.com/prayer-times-api#get-/timings/-date-)
 
 ## Website
 
