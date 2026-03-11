@@ -15,4 +15,6 @@ extension String {
     static let use24HourFormat = "use24HourFormat"
     static let showIslamicDate = "showIslamicDate"
     static let islamicDateLanguage = "islamicDateLanguage"
+    static let lastFetchDateKey = "quranLastFetchDate"
+    static let cachedVerseKey = "quranCachedVerse"
 }

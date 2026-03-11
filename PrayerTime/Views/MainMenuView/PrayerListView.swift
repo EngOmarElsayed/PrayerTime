@@ -4,7 +4,6 @@ struct PrayerListView: View {
     @Environment(PrayerManager.self) private var prayerManager
     @AppStorage(.showIslamicDate) private var showIslamicDate = true
     @AppStorage(.islamicDateLanguage) private var islamicDateLanguage: IslamicDateLanguage = .english
-    @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -12,9 +11,19 @@ struct PrayerListView: View {
             Divider()
             prayerListSection
             Divider()
+            quranSection
+            Divider()
             footerSection
         }
         .frame(width: 260)
+    }
+
+    private var quranSection: some View {
+        ScrollView {
+            QuranVerseSection()
+        }
+        .frame(height: 100)
+        .padding(.vertical, 12)
     }
 
     private var headerSection: some View {
@@ -47,18 +56,10 @@ struct PrayerListView: View {
 
     private var footerSection: some View {
         HStack {
-            Button {
-                showSettings.toggle()
-            } label: {
-                Image(systemName: "gear")
-                Text("Settings")
+            SettingsLink {
+                Label("Settings", systemImage: "gear")
             }
             .buttonStyle(.plain)
-            .popover(isPresented: $showSettings) {
-                SettingsView()
-                    .environment(prayerManager)
-                    .frame(width: 300, height: 320)
-            }
 
             Spacer()
 

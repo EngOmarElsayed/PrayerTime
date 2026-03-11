@@ -1,8 +1,10 @@
 import SwiftUI
 import ServiceManagement
+import StoreKit
 
 struct SettingsView: View {
     @Environment(PrayerManager.self) private var prayerManager
+    @Environment(\.requestReview) private var requestReview
 
     @AppStorage(.menuBarLabelMode) private var labelMode: MenuBarLabelMode = .mosqueWithCountdown
     @AppStorage(.calculationMethod) private var calculationMethodRaw: Int = CalculationMethod.egyptian.rawValue
@@ -75,15 +77,30 @@ struct SettingsView: View {
                         setLaunchAtLogin(newValue)
                     }
             }
+
+            Section {
+                HStack {
+                    Button {
+                        requestReview()
+                    } label: {
+                        Label("Rate Us", systemImage: "star")
+                    }
+
+                    Spacer()
+
+                    Button {
+                        NSWorkspace.shared.open(URL(string: "https://www.prayer-time.app")!)
+                    } label: {
+                        Label("Visit Our Website", systemImage: "globe")
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
+        .frame(width: 400)
         .onAppear {
             notificationsEnabled = prayerManager.notificationState()
-            // Force the popover window to become key so controls render in active appearance
-            DispatchQueue.main.async {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.windows.first { $0.isVisible }?.makeKey()
-            }
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -100,3 +117,18 @@ struct SettingsView: View {
         }
     }
 }
+
+
+// Transparent window
+struct VisualEffectBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+

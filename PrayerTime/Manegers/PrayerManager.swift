@@ -114,7 +114,14 @@ extension PrayerManager {
             let content = UNMutableNotificationContent()
             content.title = "Prayer Time"
             content.body = "\(prayer.name.emoji) It's time for \(prayer.name.rawValue)"
-            content.sound = .default
+
+            let soundRaw = userDefualts.string(forKey: .notificationSound) ?? NotificationSound.defaultSound.rawValue
+            let selectedSound = NotificationSound(rawValue: soundRaw) ?? .defaultSound
+            if let fileName = selectedSound.fileName {
+                content.sound = UNNotificationSound(named: UNNotificationSoundName(fileName + ".wav"))
+            } else {
+                content.sound = .default
+            }
             
             let components = Calendar.current.dateComponents([.hour, .minute, .second], from: prayer.time)
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
@@ -181,6 +188,7 @@ extension PrayerManager {
                 try? await Task.sleep(for: .seconds(interval))
                 guard !Task.isCancelled else { break }
                 await fetchPrayerTimes()
+                await QuranManager.shared.fetchRandomAyah()
             }
         }
     }
