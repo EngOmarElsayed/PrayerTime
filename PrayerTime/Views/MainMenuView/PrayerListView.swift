@@ -1,9 +1,12 @@
 import SwiftUI
+import StoreKit
 
 struct PrayerListView: View {
     @Environment(PrayerManager.self) private var prayerManager
+    @Environment(\.requestReview) private var requestReview
     @AppStorage(.showIslamicDate) private var showIslamicDate = true
     @AppStorage(.islamicDateLanguage) private var islamicDateLanguage: IslamicDateLanguage = .english
+    @AppStorage(.menuBarOpenCount) private var menuBarOpenCount = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,6 +19,12 @@ struct PrayerListView: View {
             footerSection
         }
         .frame(width: 260)
+        .onAppear {
+            menuBarOpenCount += 1
+            if menuBarOpenCount == 2 {
+                requestReview()
+            }
+        }
     }
 
     private var quranSection: some View {

@@ -17,4 +17,5 @@ extension String {
     static let islamicDateLanguage = "islamicDateLanguage"
     static let lastFetchDateKey = "quranLastFetchDate"
     static let cachedVerseKey = "quranCachedVerse"
+    static let menuBarOpenCount = "menuBarOpenCount"
 }
