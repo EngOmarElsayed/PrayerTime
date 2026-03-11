@@ -50,7 +50,7 @@ extension PrayerManager {
             let data = try await fetchFromAPI(latitude: location.latitude, longitude: location.longitude)
             parsePrayerTimes(data.timings)
             hijriDate = data.date.hijri
-            scheduleNotifications()
+            await scheduleNotifications()
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -76,7 +76,7 @@ extension PrayerManager {
     func toggleNotification(newValue: Bool) async {
         if newValue {
             await requestNotificationPermission()
-            scheduleNotifications()
+            await scheduleNotifications()
         } else {
             userDefualts.set(false, forKey: .notificationsEnabled)
             cancelAllNotifications()
@@ -85,6 +85,10 @@ extension PrayerManager {
     
     func notificationState() -> Bool {
         userDefualts.bool(forKey: .notificationsEnabled)
+    }
+
+    func rescheduleNotifications() {
+        Task { await scheduleNotifications() }
     }
     
     func requestNotificationPermission() async {
@@ -104,46 +108,72 @@ extension PrayerManager {
         }
     }
     
-    private func scheduleNotifications() {
+    private func scheduleNotifications() async {
         cancelAllNotifications()
         guard userDefualts.bool(forKey: .notificationsEnabled) else { return }
         for prayer in prayers {
-            if prayer.name == .sunrise { continue }
-            if prayer.isPassed { continue }
-            
-            let content = UNMutableNotificationContent()
-            content.title = "Prayer Time"
-            content.body = "\(prayer.name.emoji) It's time for \(prayer.name.rawValue)"
+            async let _ = normalNotification(for: prayer)
+            // Pre-adhan reminder 20 minutes before
+            async let _ = twentyMintuesNotification(for: prayer)
+        }
+    }
 
-            let soundRaw = userDefualts.string(forKey: .notificationSound) ?? NotificationSound.defaultSound.rawValue
-            let selectedSound = NotificationSound(rawValue: soundRaw) ?? .defaultSound
-            if let fileName = selectedSound.fileName {
-                content.sound = UNNotificationSound(named: UNNotificationSoundName(fileName + ".wav"))
-            } else {
-                content.sound = .default
-            }
-            
-            let components = Calendar.current.dateComponents([.hour, .minute, .second], from: prayer.time)
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-            
-            let request = UNNotificationRequest(
-                identifier: "prayer-\(prayer.name.rawValue)",
-                content: content,
-                trigger: trigger
+    private func normalNotification(for prayer: PrayerTime) async {
+        if prayer.name == .sunrise { return }
+        if prayer.isPassed { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Prayer Time"
+        content.body = "\(prayer.name.emoji) It's time for \(prayer.name.rawValue)"
+
+        let soundRaw = userDefualts.string(forKey: .notificationSound) ?? NotificationSound.defaultSound.rawValue
+        let selectedSound = NotificationSound(rawValue: soundRaw) ?? .defaultSound
+        if let fileName = selectedSound.fileName {
+            content.sound = UNNotificationSound(named: UNNotificationSoundName(fileName + ".wav"))
+        } else {
+            content.sound = .defaultCritical
+        }
+        
+        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: prayer.time)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        
+        let request = UNNotificationRequest(
+            identifier: "prayer-\(prayer.name.rawValue)",
+            content: content,
+            trigger: trigger
+        )
+
+        try? await center.add(request)
+    }
+
+    private func twentyMintuesNotification(for prayer: PrayerTime) async {
+        if userDefualts.bool(forKey: .preAdhanReminderEnabled) {
+            let reminderTime = prayer.time.addingTimeInterval(-20 * 60)
+            guard reminderTime > Date() else { return }
+
+            let reminderContent = UNMutableNotificationContent()
+            reminderContent.title = "Prayer Reminder"
+            reminderContent.body = "\(prayer.name.emoji) \(prayer.name.rawValue) is in 20 minutes"
+            reminderContent.sound = .default
+
+            let reminderComponents = Calendar.current.dateComponents([.hour, .minute, .second], from: reminderTime)
+            let reminderTrigger = UNCalendarNotificationTrigger(dateMatching: reminderComponents, repeats: false)
+
+            let reminderRequest = UNNotificationRequest(
+                identifier: "pre-prayer-\(prayer.name.rawValue)",
+                content: reminderContent,
+                trigger: reminderTrigger
             )
-            center.add(request)
+
+            try? await center.add(reminderRequest)
         }
     }
 
     private func cancelAllNotifications() {
-        center
-            .removePendingNotificationRequests(
-                withIdentifiers:
-                    PrayerName.allCases
-                    .map {
-                        "prayer-\($0.rawValue)"
-                    }
-        )
+        let identifiers = PrayerName.allCases.flatMap {
+            ["prayer-\($0.rawValue)", "pre-prayer-\($0.rawValue)"]
+        }
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 }
 

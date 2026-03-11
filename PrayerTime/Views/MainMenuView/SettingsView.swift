@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(.showIslamicDate) private var showIslamicDate = true
     @AppStorage(.islamicDateLanguage) private var islamicDateLanguage: IslamicDateLanguage = .english
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @AppStorage(.preAdhanReminderEnabled) private var preAdhanReminder = false
     @State private var notificationsEnabled = false
 
     private var calculationMethod: Binding<CalculationMethod> {
@@ -58,6 +59,12 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(!notificationsEnabled)
+
+                Toggle("20-Minute Pre-Adhan Reminder", isOn: $preAdhanReminder)
+                    .disabled(!notificationsEnabled)
+                    .onChange(of: preAdhanReminder) { _, _ in
+                        prayerManager.rescheduleNotifications()
+                    }
             }
 
             Section("General") {

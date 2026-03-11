@@ -18,4 +18,5 @@ extension String {
     static let lastFetchDateKey = "quranLastFetchDate"
     static let cachedVerseKey = "quranCachedVerse"
     static let menuBarOpenCount = "menuBarOpenCount"
+    static let preAdhanReminderEnabled = "preAdhanReminderEnabled"
 }
