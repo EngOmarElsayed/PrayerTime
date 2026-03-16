@@ -72,7 +72,7 @@ export default function Navbar() {
             </svg>
           </a>
           <a
-            href="#"
+            href="https://apps.apple.com/us/app/prayertime-never-miss-a-prayer/id6760121051?mt=12"
             className="gold-btn px-4 py-2 rounded-lg text-sm font-semibold"
           >
             Download
@@ -137,7 +137,7 @@ export default function Navbar() {
             GitHub
           </a>
           <a
-            href="#"
+            href="https://apps.apple.com/us/app/prayertime-never-miss-a-prayer/id6760121051?mt=12"
             onClick={handleLinkClick}
             className="gold-btn inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-semibold mt-1"
           >
