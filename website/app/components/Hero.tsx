@@ -33,7 +33,7 @@ export default function Hero() {
 
       {/* CTA Button */}
       <a
-        href="#"
+        href="https://apps.apple.com/us/app/prayertime-never-miss-a-prayer/id6760121051?mt=12"
         className="gold-btn inline-flex items-center gap-2 px-5 py-3 sm:px-8 sm:py-4 rounded-xl text-sm sm:text-lg font-semibold"
       >
         <svg
